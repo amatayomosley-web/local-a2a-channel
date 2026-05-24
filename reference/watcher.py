@@ -41,8 +41,9 @@ LAST_SEEN_FILE = Path(os.environ.get("A2A_LAST_SEEN_FILE", str(SHARED_DIR / "wat
 # Tracker file for the last successfully processed dialogue Turn number (polling fallback state)
 LAST_SEEN_TURN_FILE = Path(os.environ.get("A2A_LAST_SEEN_TURN_FILE", str(SHARED_DIR / "watch_ping_dialogue.lastseen_turn.txt")))
 
-# String indicator showing that the newest ledger turn is addressed to this agent
-ADDRESSED_TO_ME_PATTERN = os.environ.get("A2A_ADDRESSED_TO_ME", "→ Current")
+# String indicator showing that the newest ledger turn is addressed to this agent.
+# Defaults to "→ Agent", representing a generic recipient.
+ADDRESSED_TO_ME_PATTERN = os.environ.get("A2A_ADDRESSED_TO_ME", "→ Agent")
 
 # Canonical wake message payload
 WAKE_MESSAGE = (
@@ -209,8 +210,38 @@ def try_send(ls_address: str, csrf_token: str, conv_id: str, message: str) -> tu
         return False, f"exception: {e}"
 
 
+# Optional custom wake handler command (e.g. "python C:\\path\\to\\wake.py").
+# If configured, the watcher will invoke this command rather than the embedded fallback.
+WAKE_HANDLER_CMD = os.environ.get("A2A_WAKE_HANDLER", "")
+
+
 def fire_wake() -> bool:
-    """Locate active agent server session, try connection candidates, and deliver wake message."""
+    """Deliver the wake message to the target agent. If a custom wake handler is configured,
+    shells out to it. Otherwise, falls back to the default embedded Antigravity LS handler."""
+    if WAKE_HANDLER_CMD:
+        try:
+            print(f"[fire_wake] Executing custom wake handler command: {WAKE_HANDLER_CMD}")
+            env = os.environ.copy()
+            env["A2A_WAKE_MESSAGE"] = WAKE_MESSAGE
+            result = subprocess.run(
+                WAKE_HANDLER_CMD,
+                env=env,
+                capture_output=True,
+                text=True,
+                shell=True,
+                timeout=15
+            )
+            print(f"[fire_wake] Custom handler exit={result.returncode}")
+            if result.stdout:
+                print(f"[fire_wake]   stdout: {result.stdout.strip()}")
+            if result.stderr:
+                print(f"[fire_wake]   stderr: {result.stderr.strip()}")
+            return result.returncode == 0
+        except Exception as e:
+            print(f"[fire_wake] Custom handler error: {e}")
+            return False
+
+    # Default embedded handler for Antigravity-like language servers
     addr = read_address_file()
     if not addr:
         print("[fire_wake] address file missing or unreadable")
