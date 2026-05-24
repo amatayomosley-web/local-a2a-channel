@@ -1,0 +1,29 @@
+# Secrets and state files (per-deployment, never committed)
+*.key
+*.key.new
+*-secret*
+ping-secret*
+seq-*.txt
+lastseen*.txt
+
+# Ping files (transient, written at runtime)
+PING_*.tmp
+PING_*.json
+
+# Ledger content (per-deployment; only the FORMAT is in this repo, never content)
+ledger.md
+dialogue.md
+
+# Build / OS noise
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Python / virtualenv noise (if Python reference impl is used)
+__pycache__/
+*.pyc
+.venv/
+venv/
